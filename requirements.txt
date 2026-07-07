@@ -1,0 +1,12 @@
+# Core HTTP
+requests>=2.31.0
+urllib3>=2.0.0
+
+# CLI
+click>=8.1.7
+
+# Web UI (Flask dashboard — optional, only needed for `python ui/app.py`)
+flask>=3.0.0
+
+# Environment variable loading
+python-dotenv>=1.0.0
