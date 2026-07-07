@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Binance Futures Testnet Trading Bot — monitor orders, positions, and account balances in real time." />
+  <title>Trading Bot — Binance Futures Testnet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <span class="logo-icon">⚡</span>
+    <span class="logo-text">TradingBot</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="#" class="nav-item active" data-section="dashboard" id="nav-dashboard">
+      <span class="nav-icon">📊</span><span>Dashboard</span>
+    </a>
+    <a href="#" class="nav-item" data-section="place-order" id="nav-place-order">
+      <span class="nav-icon">➕</span><span>Place Order</span>
+    </a>
+    <a href="#" class="nav-item" data-section="orders" id="nav-orders">
+      <span class="nav-icon">📋</span><span>Orders</span>
+    </a>
+    <a href="#" class="nav-item" data-section="positions" id="nav-positions">
+      <span class="nav-icon">📈</span><span>Positions</span>
+    </a>
+    <a href="#" class="nav-item" data-section="logs" id="nav-logs">
+      <span class="nav-icon">🗒️</span><span>Logs</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="network-badge">
+      <span class="badge-dot"></span>
+      <span>Testnet</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<main class="main" id="main">
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="menu-toggle" id="menu-toggle" aria-label="Toggle sidebar">☰</button>
+      <h1 class="page-title" id="page-title">Dashboard</h1>
+    </div>
+    <div class="topbar-right">
+      <div class="price-ticker" id="ticker-btc">
+        <span class="ticker-sym">BTC</span>
+        <span class="ticker-price" id="btc-price">—</span>
+      </div>
+      <div class="price-ticker" id="ticker-eth">
+        <span class="ticker-sym">ETH</span>
+        <span class="ticker-price" id="eth-price">—</span>
+      </div>
+      <button class="btn btn-sm btn-outline" id="refresh-btn" title="Refresh data">↺ Refresh</button>
+    </div>
+  </header>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- ── SECTION: Dashboard ── -->
+  <section class="section active" id="section-dashboard">
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-icon stat-green">💰</div>
+        <div class="stat-info">
+          <div class="stat-label">Wallet Balance (USDT)</div>
+          <div class="stat-value" id="wallet-balance">—</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-blue">📦</div>
+        <div class="stat-info">
+          <div class="stat-label">Available Margin</div>
+          <div class="stat-value" id="available-margin">—</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-purple">📈</div>
+        <div class="stat-info">
+          <div class="stat-label">Unrealized PnL</div>
+          <div class="stat-value" id="unrealized-pnl">—</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-orange">🔄</div>
+        <div class="stat-info">
+          <div class="stat-label">Open Orders</div>
+          <div class="stat-value" id="open-order-count">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="card mt-4">
+      <div class="card-header">
+        <h2 class="card-title">Recent Orders</h2>
+        <button class="btn btn-sm btn-ghost" onclick="loadOrders()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="recent-orders-table">
+          <thead>
+            <tr>
+              <th>Order ID</th><th>Symbol</th><th>Side</th>
+              <th>Type</th><th>Qty</th><th>Avg Price</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="recent-orders-body">
+            <tr><td colspan="7" class="empty-row">No orders yet — place your first order!</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Open Positions -->
+    <div class="card mt-4">
+      <div class="card-header">
+        <h2 class="card-title">Open Positions</h2>
+        <button class="btn btn-sm btn-ghost" onclick="loadPositions()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="positions-table">
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Side</th><th>Size</th>
+              <th>Entry Price</th><th>Mark Price</th><th>Unrealized PnL</th><th>Leverage</th>
+            </tr>
+          </thead>
+          <tbody id="positions-body">
+            <tr><td colspan="7" class="empty-row">No open positions</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION: Place Order ── -->
+  <section class="section" id="section-place-order">
+    <div class="order-form-wrap">
+      <div class="card order-card">
+        <div class="card-header">
+          <h2 class="card-title">⚡ Place New Order</h2>
+        </div>
+
+        <form id="order-form" autocomplete="off">
+          <!-- Symbol + Price row -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="f-symbol">Symbol</label>
+              <input class="form-input" id="f-symbol" type="text" placeholder="e.g. BTCUSDT" value="BTCUSDT" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Live Price</label>
+              <div class="live-price-box" id="live-price-display">—</div>
+            </div>
+          </div>
+
+          <!-- Side toggle -->
+          <div class="form-group">
+            <label class="form-label">Side</label>
+            <div class="side-toggle">
+              <button type="button" class="side-btn active buy-btn" id="side-buy" onclick="selectSide('BUY')">
+                ▲ BUY / LONG
+              </button>
+              <button type="button" class="side-btn sell-btn" id="side-sell" onclick="selectSide('SELL')">
+                ▼ SELL / SHORT
+              </button>
+            </div>
+          </div>
+
+          <!-- Order type tabs -->
+          <div class="form-group">
+            <label class="form-label">Order Type</label>
+            <div class="type-tabs">
+              <button type="button" class="type-tab active" onclick="selectType('MARKET')">Market</button>
+              <button type="button" class="type-tab" onclick="selectType('LIMIT')">Limit</button>
+              <button type="button" class="type-tab" onclick="selectType('STOP')">Stop-Limit</button>
+            </div>
+          </div>
+
+          <!-- Quantity -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="f-quantity">Quantity</label>
+              <input class="form-input" id="f-quantity" type="number" placeholder="0.001" step="0.001" min="0" />
+            </div>
+            <div class="form-group" id="grp-price">
+              <label class="form-label" for="f-price">Limit Price (USDT)</label>
+              <input class="form-input" id="f-price" type="number" placeholder="0.00" step="0.01" min="0" disabled />
+            </div>
+          </div>
+
+          <!-- Stop price (only for STOP orders) -->
+          <div class="form-group" id="grp-stop-price" style="display:none;">
+            <label class="form-label" for="f-stop-price">Stop Trigger Price (USDT)</label>
+            <input class="form-input" id="f-stop-price" type="number" placeholder="0.00" step="0.01" min="0" />
+          </div>
+
+          <!-- TIF (limit/stop only) -->
+          <div class="form-group" id="grp-tif" style="display:none;">
+            <label class="form-label" for="f-tif">Time in Force</label>
+            <select class="form-input form-select" id="f-tif">
+              <option value="GTC">GTC — Good Till Cancel</option>
+              <option value="IOC">IOC — Immediate Or Cancel</option>
+              <option value="FOK">FOK — Fill Or Kill</option>
+            </select>
+          </div>
+
+          <div id="order-error" class="form-error" style="display:none;"></div>
+
+          <button type="submit" class="btn btn-primary btn-full" id="submit-order-btn">
+            <span id="submit-label">Place Order</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Last order result card -->
+      <div class="card order-result-card" id="order-result-card" style="display:none;">
+        <div class="card-header">
+          <h2 class="card-title">✅ Order Placed</h2>
+        </div>
+        <div id="order-result-body"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION: Orders ── -->
+  <section class="section" id="section-orders">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">All Orders</h2>
+        <button class="btn btn-sm btn-ghost" onclick="loadOrders()">↺ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Order ID</th><th>Symbol</th><th>Side</th><th>Type</th>
+              <th>Orig Qty</th><th>Exec Qty</th><th>Price</th><th>Avg Price</th><th>Status</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="all-orders-body">
+            <tr><td colspan="10" class="empty-row">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION: Positions ── -->
+  <section class="section" id="section-positions">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Open Positions</h2>
+        <button class="btn btn-sm btn-ghost" onclick="loadPositions()">↺ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Side</th><th>Size</th><th>Entry Price</th>
+              <th>Mark Price</th><th>Unrealized PnL</th><th>Liq. Price</th><th>Leverage</th>
+            </tr>
+          </thead>
+          <tbody id="positions-detail-body">
+            <tr><td colspan="8" class="empty-row">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SECTION: Logs ── -->
+  <section class="section" id="section-logs">
+    <div class="card logs-card">
+      <div class="card-header">
+        <h2 class="card-title">🗒️ Log Viewer</h2>
+        <div class="log-controls">
+          <label class="filter-label">
+            <input type="checkbox" id="log-filter-orders" checked /> Orders only
+          </label>
+          <button class="btn btn-sm btn-ghost" onclick="loadLogs()">↺ Refresh</button>
+        </div>
+      </div>
+      <div class="log-panel" id="log-panel">
+        <p class="log-placeholder">Loading logs…</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   Trading Bot Dashboard  —  main.js (inline)
+   ═══════════════════════════════════════════════════ */
+
+let _currentSide = 'BUY';
+let _currentType = 'MARKET';
+
+/* ── Navigation ──────────────────────────────────── */
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', e => {
+    e.preventDefault();
+    const section = item.dataset.section;
+    navigate(section);
+  });
+});
+
+function navigate(section) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('nav-' + section)?.classList.add('active');
+  document.getElementById('section-' + section)?.classList.add('active');
+  document.getElementById('page-title').textContent = {
+    dashboard: 'Dashboard',
+    'place-order': 'Place Order',
+    orders: 'Orders',
+    positions: 'Positions',
+    logs: 'Log Viewer'
+  }[section] || section;
+
+  if (section === 'orders')    loadOrders();
+  if (section === 'positions') loadPositions();
+  if (section === 'logs')      loadLogs();
+  if (section === 'dashboard') loadDashboard();
+}
+
+document.getElementById('menu-toggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+});
+
+/* ── Toast ────────────────────────────────────────── */
+function toast(msg, type = 'success') {
+  const tc = document.getElementById('toast-container');
+  const t  = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  tc.appendChild(t);
+  setTimeout(() => t.classList.add('show'), 50);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3500);
+}
+
+/* ── Fetch helpers ────────────────────────────────── */
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await res.json();
+  return data;
+}
+
+/* ── Ticker ───────────────────────────────────────── */
+async function fetchTicker(symbol, elId) {
+  const data = await apiFetch(`/api/price/${symbol}`);
+  const el   = document.getElementById(elId);
+  if (data.ok && el) {
+    el.textContent = parseFloat(data.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+}
+
+async function refreshTickers() {
+  await fetchTicker('BTCUSDT', 'btc-price');
+  await fetchTicker('ETHUSDT', 'eth-price');
+}
+
+/* ── Dashboard ────────────────────────────────────── */
+async function loadDashboard() {
+  // Account
+  const acc = await apiFetch('/api/account');
+  if (acc.ok) {
+    const usdt = acc.balances.find(b => b.asset === 'USDT');
+    if (usdt) {
+      document.getElementById('wallet-balance').textContent  = parseFloat(usdt.walletBalance).toFixed(2) + ' USDT';
+      document.getElementById('available-margin').textContent = parseFloat(usdt.availableBalance).toFixed(2) + ' USDT';
+      const pnl = parseFloat(usdt.unrealizedProfit || 0);
+      const pnlEl = document.getElementById('unrealized-pnl');
+      pnlEl.textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(4) + ' USDT';
+      pnlEl.className = 'stat-value ' + (pnl >= 0 ? 'value-green' : 'value-red');
+    }
+  }
+
+  // Orders count
+  const ord = await apiFetch('/api/orders');
+  if (ord.ok) {
+    document.getElementById('open-order-count').textContent = ord.open.length;
+    renderRecentOrders(ord.history.slice(-10));
+  }
+
+  // Positions
+  await loadPositions();
+}
+
+/* ── Orders ───────────────────────────────────────── */
+async function loadOrders() {
+  const data = await apiFetch('/api/orders');
+  if (!data.ok) { toast('Failed to load orders: ' + data.error, 'error'); return; }
+
+  const all  = [...data.open, ...data.history];
+  const tbody = document.getElementById('all-orders-body');
+  if (!all.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-row">No orders found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = all.map(o => {
+    const sideClass = o.side === 'BUY' ? 'badge-green' : 'badge-red';
+    const statusClass = o.status === 'FILLED' ? 'badge-green' : o.status === 'NEW' ? 'badge-blue' : 'badge-yellow';
+    const canCancel = o.status === 'NEW';
+    return `<tr>
+      <td class="mono">${o.orderId}</td>
+      <td>${o.symbol}</td>
+      <td><span class="badge ${sideClass}">${o.side}</span></td>
+      <td>${o.type}</td>
+      <td>${o.origQty || '-'}</td>
+      <td>${o.executedQty || '-'}</td>
+      <td>${parseFloat(o.price || 0) > 0 ? o.price : 'Market'}</td>
+      <td>${parseFloat(o.avgPrice || 0) > 0 ? parseFloat(o.avgPrice).toFixed(2) : '-'}</td>
+      <td><span class="badge ${statusClass}">${o.status}</span></td>
+      <td>${canCancel ? `<button class="btn btn-xs btn-danger" onclick="cancelOrder('${o.symbol}',${o.orderId})">Cancel</button>` : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRecentOrders(orders) {
+  const tbody = document.getElementById('recent-orders-body');
+  if (!orders.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-row">No orders yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = orders.map(o => {
+    const sideClass = o.side === 'BUY' ? 'badge-green' : 'badge-red';
+    const statusClass = o.status === 'FILLED' ? 'badge-green' : o.status === 'NEW' ? 'badge-blue' : 'badge-yellow';
+    return `<tr>
+      <td class="mono">${o.orderId}</td>
+      <td>${o.symbol}</td>
+      <td><span class="badge ${sideClass}">${o.side}</span></td>
+      <td>${o.type}</td>
+      <td>${o.origQty || '-'}</td>
+      <td>${parseFloat(o.avgPrice || 0) > 0 ? parseFloat(o.avgPrice).toFixed(2) : '-'}</td>
+      <td><span class="badge ${statusClass}">${o.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Positions ────────────────────────────────────── */
+async function loadPositions() {
+  const data = await apiFetch('/api/positions');
+  const rows = data.ok ? data.positions : [];
+
+  // Dashboard widget
+  const dbBody = document.getElementById('positions-body');
+  // Detail section
+  const dtBody = document.getElementById('positions-detail-body');
+
+  if (!rows.length) {
+    const empty = '<tr><td colspan="8" class="empty-row">No open positions</td></tr>';
+    if (dbBody) dbBody.innerHTML = empty;
+    if (dtBody) dtBody.innerHTML = empty;
+    return;
+  }
+
+  const html = rows.map(p => {
+    const pnl       = parseFloat(p.unRealizedProfit || 0);
+    const pnlClass  = pnl >= 0 ? 'value-green' : 'value-red';
+    const sideClass = parseFloat(p.positionAmt) > 0 ? 'badge-green' : 'badge-red';
+    const side      = parseFloat(p.positionAmt) > 0 ? 'LONG' : 'SHORT';
+    return `<tr>
+      <td>${p.symbol}</td>
+      <td><span class="badge ${sideClass}">${side}</span></td>
+      <td>${p.positionAmt}</td>
+      <td>${parseFloat(p.entryPrice).toFixed(2)}</td>
+      <td>${parseFloat(p.markPrice || 0).toFixed(2)}</td>
+      <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(4)}</td>
+      <td>${parseFloat(p.liquidationPrice || 0).toFixed(2)}</td>
+      <td>${p.leverage}x</td>
+    </tr>`;
+  }).join('');
+
+  if (dbBody) dbBody.innerHTML = html;
+  if (dtBody) dtBody.innerHTML = html;
+}
+
+/* ── Cancel ───────────────────────────────────────── */
+async function cancelOrder(symbol, orderId) {
+  if (!confirm(`Cancel order ${orderId}?`)) return;
+  const data = await apiFetch('/api/cancel', {
+    method: 'POST',
+    body: JSON.stringify({ symbol, order_id: orderId })
+  });
+  if (data.ok) {
+    toast(`Order ${orderId} cancelled`, 'success');
+    loadOrders();
+  } else {
+    toast('Cancel failed: ' + data.error, 'error');
+  }
+}
+
+/* ── Order Form ───────────────────────────────────── */
+function selectSide(side) {
+  _currentSide = side;
+  document.getElementById('side-buy').classList.toggle('active',  side === 'BUY');
+  document.getElementById('side-sell').classList.toggle('active', side === 'SELL');
+}
+
+function selectType(type) {
+  _currentType = type;
+  document.querySelectorAll('.type-tab').forEach((t, i) => {
+    t.classList.toggle('active', ['MARKET','LIMIT','STOP'][i] === type);
+  });
+  const priceInput = document.getElementById('f-price');
+  document.getElementById('grp-stop-price').style.display = type === 'STOP'   ? '' : 'none';
+  document.getElementById('grp-tif').style.display        = type !== 'MARKET' ? '' : 'none';
+  if (type === 'MARKET') {
+    priceInput.disabled = true;
+    priceInput.value    = '';
+  } else {
+    priceInput.disabled = false;
+  }
+}
+
+// Fetch live price when symbol changes
+let _priceDebounce;
+document.getElementById('f-symbol').addEventListener('input', function() {
+  clearTimeout(_priceDebounce);
+  _priceDebounce = setTimeout(async () => {
+    const sym  = this.value.trim().toUpperCase();
+    if (sym.length < 3) return;
+    const data = await apiFetch(`/api/price/${sym}`);
+    document.getElementById('live-price-display').textContent = data.ok
+      ? parseFloat(data.price).toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' USDT'
+      : 'N/A';
+  }, 500);
+});
+
+document.getElementById('order-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('order-error');
+  errEl.style.display = 'none';
+
+  const btn   = document.getElementById('submit-order-btn');
+  const label = document.getElementById('submit-label');
+  btn.disabled = true;
+  label.textContent = 'Placing…';
+
+  const payload = {
+    symbol:     document.getElementById('f-symbol').value.trim().toUpperCase(),
+    side:       _currentSide,
+    type:       _currentType,
+    quantity:   parseFloat(document.getElementById('f-quantity').value),
+    price:      _currentType !== 'MARKET' ? parseFloat(document.getElementById('f-price').value) || null : null,
+    stop_price: _currentType === 'STOP'   ? parseFloat(document.getElementById('f-stop-price').value) || null : null,
+    tif:        document.getElementById('f-tif').value || 'GTC',
+  };
+
+  const data = await apiFetch('/api/order', { method: 'POST', body: JSON.stringify(payload) });
+
+  btn.disabled = false;
+  label.textContent = 'Place Order';
+
+  if (data.ok) {
+    toast(`✅ ${data.order.type} ${data.order.side} order placed — ID: ${data.order.orderId}`, 'success');
+    renderOrderResult(data.order);
+    loadDashboard();
+  } else {
+    errEl.textContent   = data.error;
+    errEl.style.display = '';
+    toast('Order failed: ' + data.error, 'error');
+  }
+});
+
+function renderOrderResult(o) {
+  const card = document.getElementById('order-result-card');
+  const body = document.getElementById('order-result-body');
+  const sideClass = o.side === 'BUY' ? 'badge-green' : 'badge-red';
+  body.innerHTML = `
+    <div class="result-grid">
+      <div class="result-item"><span class="result-label">Order ID</span><span class="result-value mono">${o.orderId}</span></div>
+      <div class="result-item"><span class="result-label">Symbol</span><span class="result-value">${o.symbol}</span></div>
+      <div class="result-item"><span class="result-label">Side</span><span class="result-value"><span class="badge ${sideClass}">${o.side}</span></span></div>
+      <div class="result-item"><span class="result-label">Type</span><span class="result-value">${o.type}</span></div>
+      <div class="result-item"><span class="result-label">Quantity</span><span class="result-value">${o.origQty}</span></div>
+      <div class="result-item"><span class="result-label">Status</span><span class="result-value badge badge-blue">${o.status}</span></div>
+      <div class="result-item"><span class="result-label">Executed Qty</span><span class="result-value">${o.executedQty}</span></div>
+      <div class="result-item"><span class="result-label">Avg Price</span><span class="result-value">${parseFloat(o.avgPrice || 0) > 0 ? parseFloat(o.avgPrice).toFixed(2) + ' USDT' : '—'}</span></div>
+    </div>`;
+  card.style.display = '';
+}
+
+/* ── Logs ─────────────────────────────────────────── */
+async function loadLogs() {
+  const data   = await apiFetch('/api/logs');
+  const panel  = document.getElementById('log-panel');
+  const filter = document.getElementById('log-filter-orders').checked;
+
+  if (!data.ok) { panel.innerHTML = `<p class="log-error">Error loading logs: ${data.error}</p>`; return; }
+
+  let lines = data.lines;
+  if (filter) lines = lines.filter(l => l.event?.startsWith('order') || !l.event);
+
+  if (!lines.length) { panel.innerHTML = '<p class="log-placeholder">No log entries</p>'; return; }
+
+  panel.innerHTML = lines.map(l => {
+    const lvl = (l.level || 'INFO').toUpperCase();
+    const cls = lvl === 'ERROR' ? 'log-error' : lvl === 'WARNING' ? 'log-warn' : lvl === 'DEBUG' ? 'log-debug' : 'log-info';
+    const ts  = l.ts || '';
+    const msg = l.msg || JSON.stringify(l);
+    const extra = l.event ? ` [${l.event}]` : '';
+    return `<div class="log-line ${cls}"><span class="log-ts">${ts}</span><span class="log-lvl">${lvl}</span><span class="log-msg">${msg}${extra}</span></div>`;
+  }).join('');
+
+  panel.scrollTop = panel.scrollHeight;
+}
+
+document.getElementById('log-filter-orders').addEventListener('change', loadLogs);
+
+/* ── Refresh button ───────────────────────────────── */
+document.getElementById('refresh-btn').addEventListener('click', () => {
+  refreshTickers();
+  loadDashboard();
+  toast('Data refreshed', 'success');
+});
+
+/* ── Auto-refresh ─────────────────────────────────── */
+setInterval(refreshTickers, 10000);
+setInterval(loadDashboard,  30000);
+
+/* ── Init ─────────────────────────────────────────── */
+refreshTickers();
+loadDashboard();
+</script>
+
+</body>
+</html>
